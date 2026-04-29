@@ -1,15 +1,20 @@
 # earth-sings
-using earth weather data to trigger music
 
-this is a cool API from NASA
-https://eonet.gsfc.nasa.gov/
+Generative audiovisual experiments: **natural Earth events** (via NASA EONET) drive music and visuals — inspired by [TrainJazz](https://www.trainjazz.com/)’s real-world-data-to-sound approach.
 
-I believe we can pull real earth weether data from this. 
+## Documentation
 
-Recently I came across this project which is very cool: https://www.trainjazz.com/
+All design, planning, Jira-style backlog, and progress tracking live in **[docs/](docs/README.md)**:
 
-it's taking real subway data, what trains are where, and trigger notes from them.
-I belive it's taking each subway line, normalizing them to the same length. Along that line, the stations are dotted along.
-When a train is present, a note is triggered.
+- **[docs/PROGRESS.md](docs/PROGRESS.md)** — current phase and milestone log  
+- **[docs/JIRA_BACKLOG.md](docs/JIRA_BACKLOG.md)** — epics, stories, tasks  
+- **[docs/DESIGN_AND_PROJECT_PLAN.md](docs/DESIGN_AND_PROJECT_PLAN.md)** — full architecture and build phases  
 
-But what if the different weather events of earth are also doing the same thing?
+**Data source:** [NASA EONET](https://eonet.gsfc.nasa.gov/)
+
+## Quick links
+
+| Resource | URL |
+| --- | --- |
+| EONET API (v3) | https://eonet.gsfc.nasa.gov/docs/v3 |
+| TrainJazz (reference) | https://www.trainjazz.com/ |
