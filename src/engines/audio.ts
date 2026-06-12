@@ -3,6 +3,27 @@ import type { EventCategory, MappingParams } from '../types'
 
 const VOICE_BUDGET = 8
 
+export interface AudioEvent {
+  timestamp: number
+  eventId: string
+  eventTitle: string
+  category: EventCategory
+  note: string
+  velocity: number
+  pan: number
+  duration: string
+  isFocused: boolean
+}
+
+export type AudioEventCallback = (e: AudioEvent) => void
+
+const CATEGORY_EMOJI: Record<EventCategory, string> = {
+  wildfires: '🔥',
+  storms: '🌀',
+  volcanoes: '🌋',
+  floods: '🌊',
+}
+
 interface InstrumentSet {
   wildfires: Tone.PluckSynth
   storms: Tone.Synth
@@ -24,6 +45,11 @@ export class AudioEngine {
   private isPlaying = false
   private scheduledIds: number[] = []
   private focusedEventId: string | null = null
+  private onAudioEvent: AudioEventCallback | null = null
+
+  setAudioEventCallback(cb: AudioEventCallback | null) {
+    this.onAudioEvent = cb
+  }
 
   private buildInstruments() {
     const wildfireReverb = new Tone.Reverb({ decay: 0.8, wet: 0.15 }).toDestination()
@@ -115,7 +141,6 @@ export class AudioEngine {
       const id = Tone.getTransport().scheduleRepeat((time) => {
         if (!this.isPlaying) return
 
-        // Focus mode: attenuate non-focused events
         const isFocused = this.focusedEventId === null || this.focusedEventId === m.event.id
         const velocity = isFocused ? m.velocity : m.velocity * 0.15
 
@@ -126,6 +151,36 @@ export class AudioEngine {
           instr.triggerAttack(m.note, time)
         } else {
           instr.triggerAttackRelease(m.note, m.duration, time, velocity)
+        }
+
+        // Emit audit event (scheduled in audio thread; use setTimeout to push to JS thread)
+        const audioEvt: AudioEvent = {
+          timestamp: Date.now(),
+          eventId: m.event.id,
+          eventTitle: m.event.title,
+          category: m.instrument,
+          note: m.note,
+          velocity: parseFloat(velocity.toFixed(2)),
+          pan: parseFloat(m.pan.toFixed(2)),
+          duration: m.duration,
+          isFocused,
+        }
+
+        // Option B: console log
+        const emoji = CATEGORY_EMOJI[m.instrument]
+        console.group(`${emoji} [earth-sings] ${m.event.title}`)
+        console.log('note     :', m.note)
+        console.log('category :', m.instrument)
+        console.log('velocity :', audioEvt.velocity, isFocused ? '(full)' : '(attenuated)')
+        console.log('pan      :', audioEvt.pan, audioEvt.pan < 0 ? '← left' : audioEvt.pan > 0 ? 'right →' : 'center')
+        console.log('duration :', m.duration)
+        console.log('focused  :', isFocused)
+        console.log('event id :', m.event.id)
+        console.groupEnd()
+
+        // Option A: notify UI callback
+        if (this.onAudioEvent) {
+          setTimeout(() => this.onAudioEvent!(audioEvt), 0)
         }
       }, `${loopBars}m`, timeStr)
 

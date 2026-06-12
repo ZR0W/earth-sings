@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AudioMonitor } from './components/AudioMonitor'
 import { Controls } from './components/Controls'
 import { EventList } from './components/EventList'
 import { Map } from './components/Map'
 import { AudioEngine } from './engines/audio'
+import type { AudioEvent } from './engines/audio'
 import { mapEvents } from './engines/mapping'
 import { useEvents } from './hooks/useEvents'
 import type { EventCategory } from './types'
 
 const ALL_CATEGORIES: EventCategory[] = ['wildfires', 'storms', 'volcanoes', 'floods']
+const MAX_LOG = 20
 
 export function App() {
   const [playing, setPlaying] = useState(false)
@@ -15,6 +18,8 @@ export function App() {
     new Set(ALL_CATEGORIES)
   )
   const [focusedId, setFocusedId] = useState<string | null>(null)
+  const [auditCurrent, setAuditCurrent] = useState<AudioEvent | null>(null)
+  const [auditLog, setAuditLog] = useState<AudioEvent[]>([])
 
   const activeCatArray = useMemo(
     () => ALL_CATEGORIES.filter(c => activeCategories.has(c)),
@@ -29,12 +34,23 @@ export function App() {
 
   const dataSource = import.meta.env.VITE_USE_FIXTURE === 'true' ? 'fixture' : 'live'
 
+  // Wire up audio event callback
+  useEffect(() => {
+    const engine = audioRef.current
+    engine.setAudioEventCallback((evt) => {
+      setAuditCurrent(evt)
+      setAuditLog(prev => [evt, ...prev].slice(0, MAX_LOG))
+    })
+    return () => engine.setAudioEventCallback(null)
+  }, [])
+
   const handleTogglePlay = useCallback(async () => {
     const engine = audioRef.current
     if (engine.playing) {
       engine.stop()
       setPlaying(false)
       setFocusedId(null)
+      setAuditCurrent(null)
     } else {
       await engine.start(mappings, activeCategories)
       setPlaying(true)
@@ -91,6 +107,7 @@ export function App() {
             onFocus={handleFocus}
           />
         )}
+        <AudioMonitor current={auditCurrent} log={auditLog} />
       </aside>
       <main className="map-area">
         <Map
