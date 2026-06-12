@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EONET Explorer — Earth Sings</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0c10; --surface: #111318; --surface2: #1a1d24;
+      --border: #2a2d36; --text: #e8eaf0; --dim: #6b7280;
+      --accent: #22ccbb; --warn: #f0a500; --danger: #ff4444;
+      font-family: system-ui, sans-serif; font-size: 14px;
+    }
+    body { background: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; }
+    h1 { font-size: 24px; margin-bottom: 4px; }
+    .subtitle { color: var(--dim); font-size: 12px; margin-bottom: 24px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .card h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 12px; }
+    .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .preset-btn {
+      padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--text); cursor: pointer; font-size: 12px;
+      transition: border-color 0.15s;
+    }
+    .preset-btn:hover { border-color: var(--accent); }
+    .controls-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--dim); }
+    select, input[type="number"], input[type="text"] {
+      padding: 6px 8px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 13px; min-width: 120px;
+    }
+    .fetch-btn {
+      padding: 8px 20px; border-radius: 6px; border: none; background: var(--accent);
+      color: #0a0c10; font-weight: 700; cursor: pointer; font-size: 13px;
+    }
+    .fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { font-size: 12px; color: var(--dim); margin-bottom: 8px; }
+    .error { color: var(--danger); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--dim); font-size: 11px; letter-spacing: 0.5px; }
+    td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+    tr:hover td { background: var(--surface2); }
+    .cat-chip { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .cat-wildfires { background: rgba(255,107,53,0.2); color: #ff6b35; }
+    .cat-storms { background: rgba(74,158,255,0.2); color: #4a9eff; }
+    .cat-volcanoes { background: rgba(204,68,170,0.2); color: #cc44aa; }
+    .cat-floods { background: rgba(34,204,187,0.2); color: #22ccbb; }
+    .cat-other { background: rgba(107,114,128,0.2); color: #9ca3af; }
+    .analytics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+    .stat-label { font-size: 10px; color: var(--dim); letter-spacing: 0.5px; text-transform: uppercase; }
+    .stat-value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+    .export-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-size: 12px; }
+    .export-btn:hover { border-color: var(--accent); }
+    .poll-row { display: flex; gap: 8px; align-items: center; }
+    .poll-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+    .poll-active { background: rgba(34,204,187,0.15); color: var(--accent); }
+    .poll-idle { background: rgba(107,114,128,0.15); color: var(--dim); }
+    pre { background: var(--surface2); border-radius: 6px; padding: 12px; font-size: 11px; overflow-x: auto; max-height: 300px; overflow-y: auto; border: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <h1>EONET Explorer</h1>
+  <p class="subtitle">Pre-phase data profiling tool for Earth Sings — NASA EONET API v3</p>
+
+  <div class="card">
+    <h2>Query Builder</h2>
+    <div class="presets">
+      <button class="preset-btn" onclick="applyPreset('all-open')">All Open Events</button>
+      <button class="preset-btn" onclick="applyPreset('wildfires')">Wildfires Only</button>
+      <button class="preset-btn" onclick="applyPreset('storms')">Severe Storms</button>
+      <button class="preset-btn" onclick="applyPreset('volcanoes')">Volcanoes</button>
+      <button class="preset-btn" onclick="applyPreset('floods')">Floods</button>
+      <button class="preset-btn" onclick="applyPreset('recent')">Last 7 Days</button>
+      <button class="preset-btn" onclick="applyPreset('closed')">Closed Events</button>
+    </div>
+    <div class="controls-row">
+      <label>Status
+        <select id="status">
+          <option value="open">open</option>
+          <option value="closed">closed</option>
+          <option value="all">all</option>
+        </select>
+      </label>
+      <label>Category IDs (comma-sep)
+        <input type="text" id="category" placeholder="wildfires,severeStorms" />
+      </label>
+      <label>Limit
+        <input type="number" id="limit" value="50" min="1" max="500" />
+      </label>
+      <label>Days (start)
+        <input type="number" id="days" value="" placeholder="7" min="1" />
+      </label>
+      <button class="fetch-btn" id="fetchBtn" onclick="doFetch()">Fetch</button>
+    </div>
+    <div class="status" id="statusLine">Ready</div>
+  </div>
+
+  <div class="card" id="analyticsCard" style="display:none">
+    <h2>Analytics</h2>
+    <div class="analytics-grid" id="analyticsGrid"></div>
+  </div>
+
+  <div class="card" id="tableCard" style="display:none">
+    <h2>Results <button class="export-btn" onclick="exportJSON()">Export JSON</button> <button class="export-btn" onclick="exportCSV()">Export CSV</button></h2>
+    <div style="overflow-x:auto"><table id="resultsTable">
+      <thead><tr>
+        <th>ID</th><th>Title</th><th>Category</th><th>Status</th><th>Lat</th><th>Lon</th><th>Detected</th><th>Magnitude</th><th>Source</th>
+      </tr></thead>
+      <tbody id="resultsBody"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h2>Polling Helper</h2>
+    <div class="poll-row">
+      <label>Interval (seconds)
+        <input type="number" id="pollInterval" value="30" min="5" />
+      </label>
+      <button class="fetch-btn" id="pollBtn" onclick="togglePolling()">Start Polling</button>
+      <span class="poll-badge poll-idle" id="pollBadge">Idle</span>
+      <span style="font-size:12px;color:var(--dim)" id="pollCount"></span>
+    </div>
+    <pre id="pollLog" style="margin-top:12px;display:none"></pre>
+  </div>
+
+  <div class="card" id="rawCard" style="display:none">
+    <h2>Raw Response</h2>
+    <pre id="rawOutput"></pre>
+  </div>
+
+  <script>
+    const EONET = 'https://eonet.gsfc.nasa.gov/api/v3'
+    let lastData = null
+    let pollTimer = null
+    let pollSnapshots = []
+    let pollRound = 0
+
+    const PRESETS = {
+      'all-open': { status: 'open', category: '', limit: 100, days: '' },
+      'wildfires': { status: 'open', category: 'wildfires', limit: 100, days: '' },
+      'storms': { status: 'open', category: 'severeStorms', limit: 100, days: '' },
+      'volcanoes': { status: 'open', category: 'volcanoes', limit: 50, days: '' },
+      'floods': { status: 'open', category: 'floods', limit: 50, days: '' },
+      'recent': { status: 'all', category: '', limit: 100, days: 7 },
+      'closed': { status: 'closed', category: '', limit: 50, days: 30 },
+    }
+
+    function applyPreset(key) {
+      const p = PRESETS[key]
+      document.getElementById('status').value = p.status
+      document.getElementById('category').value = p.category
+      document.getElementById('limit').value = p.limit
+      document.getElementById('days').value = p.days
+    }
+
+    function buildURL() {
+      const params = new URLSearchParams()
+      params.set('status', document.getElementById('status').value)
+      params.set('limit', document.getElementById('limit').value)
+      const cat = document.getElementById('category').value.trim()
+      if (cat) params.set('category', cat)
+      const days = document.getElementById('days').value.trim()
+      if (days) {
+        const start = new Date(Date.now() - parseInt(days) * 86400000)
+        params.set('start', start.toISOString().split('T')[0])
+      }
+      return `${EONET}/events?${params}`
+    }
+
+    function catClass(catTitle) {
+      const t = catTitle.toLowerCase()
+      if (t.includes('wildfire') || t.includes('fire')) return 'cat-wildfires'
+      if (t.includes('storm') || t.includes('tropical')) return 'cat-storms'
+      if (t.includes('volcan')) return 'cat-volcanoes'
+      if (t.includes('flood')) return 'cat-floods'
+      return 'cat-other'
+    }
+
+    async function doFetch() {
+      const btn = document.getElementById('fetchBtn')
+      const status = document.getElementById('statusLine')
+      btn.disabled = true
+      status.textContent = 'Fetching…'
+      status.className = 'status'
+      try {
+        const url = buildURL()
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        lastData = data
+        status.textContent = `Loaded ${data.events.length} events at ${new Date().toLocaleTimeString()}`
+        renderTable(data.events)
+        renderAnalytics(data.events)
+        document.getElementById('rawOutput').textContent = JSON.stringify(data, null, 2)
+        document.getElementById('rawCard').style.display = ''
+      } catch (e) {
+        status.textContent = `Error: ${e.message}`
+        status.className = 'status error'
+      } finally {
+        btn.disabled = false
+      }
+    }
+
+    function renderTable(events) {
+      const tbody = document.getElementById('resultsBody')
+      tbody.innerHTML = events.map(e => {
+        const geo = e.geometry[e.geometry.length - 1]
+        const [lon, lat] = geo ? geo.coordinates : ['-', '-']
+        const mag = geo?.magnitudeValue != null ? `${geo.magnitudeValue} ${geo.magnitudeUnit || ''}` : '-'
+        const catTitle = e.categories[0]?.title || 'Unknown'
+        return `<tr>
+          <td style="font-size:10px;color:var(--dim)">${e.id}</td>
+          <td>${e.title}</td>
+          <td><span class="cat-chip ${catClass(catTitle)}">${catTitle}</span></td>
+          <td>${e.closed ? '✓ closed' : '● open'}</td>
+          <td>${typeof lat === 'number' ? lat.toFixed(2) : lat}</td>
+          <td>${typeof lon === 'number' ? lon.toFixed(2) : lon}</td>
+          <td style="font-size:11px">${e.geometry[0]?.date?.split('T')[0] || '-'}</td>
+          <td>${mag}</td>
+          <td><a href="${e.link}" target="_blank" style="color:var(--accent);font-size:10px">link</a></td>
+        </tr>`
+      }).join('')
+      document.getElementById('tableCard').style.display = ''
+    }
+
+    function renderAnalytics(events) {
+      const open = events.filter(e => !e.closed)
+      const withMag = events.filter(e => e.geometry.some(g => g.magnitudeValue != null))
+      const withPoint = events.filter(e => e.geometry.some(g => g.type === 'Point'))
+      const byCategory = {}
+      events.forEach(e => {
+        const cat = e.categories[0]?.title || 'Unknown'
+        byCategory[cat] = (byCategory[cat] || 0) + 1
+      })
+
+      const stats = [
+        { label: 'Total Events', value: events.length, color: 'var(--text)' },
+        { label: 'Open Events', value: open.length, color: 'var(--accent)' },
+        { label: 'Closed Events', value: events.length - open.length, color: 'var(--dim)' },
+        { label: 'With Magnitude', value: withMag.length, color: 'var(--warn)' },
+        { label: 'Point Geometry', value: withPoint.length, color: 'var(--text)' },
+        { label: 'Avg Geo Points', value: (events.reduce((s,e) => s + e.geometry.length, 0) / (events.length || 1)).toFixed(1), color: 'var(--text)' },
+        ...Object.entries(byCategory).map(([cat, n]) => ({ label: cat, value: n, color: 'var(--text)' }))
+      ]
+
+      document.getElementById('analyticsGrid').innerHTML = stats.map(s =>
+        `<div class="stat-card">
+          <div class="stat-label">${s.label}</div>
+          <div class="stat-value" style="color:${s.color}">${s.value}</div>
+        </div>`
+      ).join('')
+      document.getElementById('analyticsCard').style.display = ''
+    }
+
+    function exportJSON() {
+      if (!lastData) return
+      const blob = new Blob([JSON.stringify(lastData, null, 2)], { type: 'application/json' })
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+      a.download = `eonet-snapshot-${Date.now()}.json`; a.click()
+    }
+
+    function exportCSV() {
+      if (!lastData) return
+      const rows = [['id','title','category','closed','lat','lon','detected','magnitude']]
+      lastData.events.forEach(e => {
+        const geo = e.geometry[e.geometry.length - 1]
+        const [lon, lat] = geo?.coordinates || ['', '']
+        rows.push([e.id, `"${e.title}"`, e.categories[0]?.title || '', e.closed || '', lat, lon, e.geometry[0]?.date || '', geo?.magnitudeValue || ''])
+      })
+      const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+      a.download = `eonet-snapshot-${Date.now()}.csv`; a.click()
+    }
+
+    let pollingActive = false
+    function togglePolling() {
+      if (pollingActive) {
+        clearInterval(pollTimer); pollTimer = null; pollingActive = false
+        document.getElementById('pollBtn').textContent = 'Start Polling'
+        document.getElementById('pollBadge').textContent = 'Idle'
+        document.getElementById('pollBadge').className = 'poll-badge poll-idle'
+      } else {
+        pollingActive = true; pollRound = 0; pollSnapshots = []
+        document.getElementById('pollBtn').textContent = 'Stop Polling'
+        document.getElementById('pollBadge').textContent = 'Active'
+        document.getElementById('pollBadge').className = 'poll-badge poll-active'
+        document.getElementById('pollLog').style.display = ''
+        runPollRound()
+        const secs = parseInt(document.getElementById('pollInterval').value) || 30
+        pollTimer = setInterval(runPollRound, secs * 1000)
+      }
+    }
+
+    async function runPollRound() {
+      pollRound++
+      const url = buildURL()
+      try {
+        const res = await fetch(url)
+        const data = await res.json()
+        const snap = { round: pollRound, ts: new Date().toISOString(), count: data.events.length, ids: data.events.map(e => e.id) }
+        pollSnapshots.push(snap)
+        const prev = pollSnapshots[pollSnapshots.length - 2]
+        const newIds = prev ? snap.ids.filter(id => !prev.ids.includes(id)) : []
+        const removedIds = prev ? prev.ids.filter(id => !snap.ids.includes(id)) : []
+        document.getElementById('pollCount').textContent = `${pollRound} rounds`
+        const logEl = document.getElementById('pollLog')
+        logEl.textContent = pollSnapshots.slice(-10).reverse().map(s => {
+          const p = pollSnapshots[pollSnapshots.indexOf(s) - 1]
+          const nd = p ? s.ids.filter(id => !p.ids.includes(id)).length : 0
+          const rd = p ? p.ids.filter(id => !s.ids.includes(id)).length : 0
+          return `[${s.ts.replace('T',' ').split('.')[0]}] Round ${s.round}: ${s.count} events (+${nd} new, -${rd} removed)`
+        }).join('\n')
+      } catch (e) {
+        document.getElementById('pollLog').textContent += `\n[ERROR] ${e.message}`
+      }
+    }
+  </script>
+</body>
+</html>
